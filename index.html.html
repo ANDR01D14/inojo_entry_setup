@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iNojo Entry Setup — VWAP + SMC Scalping Framework</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c0f;
+  --bg2: #0f1217;
+  --bg3: #151a21;
+  --bg4: #1c2330;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8edf5;
+  --muted: #6b7a94;
+  --accent: #00d4ff;
+  --accent2: #0099bb;
+  --bull: #00e696;
+  --bear: #ff4d6a;
+  --warn: #ffb347;
+  --info: #7c9eff;
+  --purple: #a78bfa;
+  --gold: #ffd700;
+  --font-mono: 'Space Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Subtle grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+
+/* Header */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.header-left {}
+.header-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.header-tag::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.header h1 {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--text);
+  line-height: 1.2;
+}
+.header h1 span { color: var(--accent); }
+.header-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* Funnel nav */
+.funnel {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.funnel-step {
+  flex: 1;
+  padding: 12px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: background .15s;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+.funnel-step:last-child { border-right: none; }
+.funnel-step:hover { background: var(--bg3); }
+.funnel-step.active { background: var(--bg3); }
+.funnel-step.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+}
+.funnel-step[data-tf="4H"].active::after { background: var(--bear); }
+.funnel-step[data-tf="1H"].active::after { background: var(--warn); }
+.funnel-step[data-tf="15M"].active::after { background: var(--info); }
+.funnel-step[data-tf="5M"].active::after { background: var(--bull); }
+.f-tf {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.funnel-step[data-tf="4H"] .f-tf { color: var(--bear); }
+.funnel-step[data-tf="1H"] .f-tf { color: var(--warn); }
+.funnel-step[data-tf="15M"] .f-tf { color: var(--info); }
+.funnel-step[data-tf="5M"] .f-tf { color: var(--bull); }
+.f-label { font-size: 11px; color: var(--muted); }
+
+/* Main layout */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 800px) { .main-grid { grid-template-columns: 1fr; } }
+
+/* TF panels */
+.tf-panel { display: none; }
+.tf-panel.active { display: block; }
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.panel-tf-badge {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 6px;
+}
+.tf-4h .panel-tf-badge { background: rgba(255,77,106,.15); color: var(--bear); }
+.tf-1h .panel-tf-badge { background: rgba(255,179,71,.15); color: var(--warn); }
+.tf-15m .panel-tf-badge { background: rgba(124,158,255,.15); color: var(--info); }
+.tf-5m .panel-tf-badge { background: rgba(0,230,150,.15); color: var(--bull); }
+.panel-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.panel-subtitle { font-size: 12px; color: var(--muted); }
+
+/* Role pill */
+.role-pill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+.tf-4h .role-pill { background: rgba(255,77,106,.1); color: var(--bear); border: 1px solid rgba(255,77,106,.2); }
+.tf-1h .role-pill { background: rgba(255,179,71,.1); color: var(--warn); border: 1px solid rgba(255,179,71,.2); }
+.tf-15m .role-pill { background: rgba(124,158,255,.1); color: var(--info); border: 1px solid rgba(124,158,255,.2); }
+.tf-5m .role-pill { background: rgba(0,230,150,.1); color: var(--bull); border: 1px solid rgba(0,230,150,.2); }
+
+/* Concept cards */
+.concept-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (max-width: 600px) { .concept-grid { grid-template-columns: 1fr; } }
+
+.concept-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  transition: border-color .15s;
+}
+.concept-card:hover { border-color: var(--border2); }
+.concept-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.concept-icon {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.concept-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.concept-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.concept-signal {
+  margin-top: 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+.sig-bear { background: rgba(255,77,106,.1); color: var(--bear); }
+.sig-bull { background: rgba(0,230,150,.1); color: var(--bull); }
+.sig-info { background: rgba(124,158,255,.1); color: var(--info); }
+.sig-warn { background: rgba(255,179,71,.1); color: var(--warn); }
+
+/* Rule card */
+.rule-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.rule-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+  padding-top: 1px;
+  width: 20px;
+}
+.rule-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+.rule-text em { color: var(--muted); font-style: normal; font-size: 12px; display: block; margin-top: 2px; }
+
+/* Entry triggers section */
+.trigger-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.trigger-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.trigger-item:hover { background: var(--bg3); border-color: var(--border2); }
+.trigger-item.selected { border-color: var(--bull); background: rgba(0,230,150,.04); }
+.trigger-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  flex-shrink: 0;
+  margin-top: 4px;
+  transition: background .15s, border-color .15s;
+}
+.trigger-item.selected .trigger-dot { background: var(--bull); border-color: var(--bull); }
+.trigger-name { font-size: 13px; font-weight: 500; color: var(--text); }
+.trigger-desc { font-size: 12px; color: var(--muted); }
+
+/* Right column — Checklist */
+.sidebar {}
+.sidebar-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.sidebar-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.reset-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  background: none;
+  transition: color .15s;
+  letter-spacing: .05em;
+}
+.reset-btn:hover { color: var(--text); }
+
+/* Check groups */
+.check-group { margin-bottom: 14px; }
+.check-group-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.check-item:last-child { border-bottom: none; }
+.check-item:hover .ci-box { border-color: var(--border2); }
+.ci-box {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--border2);
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .1s, border-color .1s;
+}
+.check-item.checked .ci-box {
+  background: var(--bull);
+  border-color: var(--bull);
+}
+.check-item.checked .ci-box::after {
+  content: '';
+  display: block;
+  width: 4px; height: 7px;
+  border: 1.5px solid #0a0c0f;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) translate(-0.5px, -1px);
+}
+.ci-body { flex: 1; }
+.ci-label { font-size: 12px; color: var(--text); line-height: 1.4; }
+.check-item.checked .ci-label { color: var(--muted); }
+.ci-pts {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+.check-item.checked .ci-pts { color: var(--bull); }
+
+/* Score display */
+.score-display {
+  background: var(--bg3);
+  border-radius: 8px;
+  padding: 14px;
+  margin-top: 4px;
+}
+.score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.score-label { font-size: 12px; color: var(--muted); }
+.score-val {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+}
+.score-max { font-size: 13px; color: var(--muted); }
+
+/* Progress bar */
+.prog-track {
+  height: 6px;
+  background: var(--bg4);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.prog-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .3s ease, background .3s;
+  width: 0%;
+}
+
+/* Grade badge */
+.grade-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid;
+  transition: all .3s;
+}
+.grade-letter {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+}
+.grade-name { font-size: 12px; font-weight: 500; }
+.grade-action { font-size: 11px; opacity: .7; }
+
+/* Trade params */
+.param-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.param-row:last-child { border-bottom: none; }
+.param-label { color: var(--muted); }
+.param-val { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
+
+/* Section label */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* Arrow chain */
+.arrow-chain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 10px 14px;
+  background: var(--bg3);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.chain-item {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.chain-sep { color: var(--muted); font-size: 14px; }
+
+/* Condition matrix */
+.matrix {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.matrix-cell {
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+.matrix-cell.bull { background: rgba(0,230,150,.05); border-color: rgba(0,230,150,.2); }
+.matrix-cell.bear { background: rgba(255,77,106,.05); border-color: rgba(255,77,106,.2); }
+.mc-head { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.matrix-cell.bull .mc-head { color: var(--bull); }
+.matrix-cell.bear .mc-head { color: var(--bear); }
+.mc-body { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+/* Grade scale */
+.grade-scale { display: flex; flex-direction: column; gap: 5px; }
+.gs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: border-color .15s;
+}
+.gs-row.current { border-color: var(--border2); }
+.gs-pts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  width: 36px;
+  flex-shrink: 0;
+}
+.gs-grade {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  width: 28px;
+  flex-shrink: 0;
+}
+.gs-label { font-size: 11px; color: var(--muted); flex: 1; }
+.gs-action { font-size: 10px; font-weight: 500; padding: 2px 6px; border-radius: 3px; }
+
+/* Tooltip hint */
+.hint-bar {
+  background: rgba(0,212,255,.06);
+  border: 1px solid rgba(0,212,255,.12);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--accent);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* S+ glow */
+@keyframes splus-glow {
+  0%,100% { box-shadow: 0 0 12px rgba(255,215,0,.2); }
+  50% { box-shadow: 0 0 28px rgba(255,215,0,.45); }
+}
+.grade-splus { animation: splus-glow 2s infinite; }
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-tag">Live Framework</div>
+      <h1 style="font-size:26px">iNojo <span>Entry Setup</span></h1>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px;margin-bottom:4px;font-family:var(--font-mono);letter-spacing:.04em">VWAP + SMC Scalping Framework</div>
+      <div class="header-sub">Top-down confluence analysis · 4H → 1H → 15M → 5M</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">PHT</div>
+        <div id="clock-pht" style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--accent)">--:--:--</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">UTC</div>
+        <div id="clock" style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">--:--:--</div>
+      </div>
+      <div id="session-label" style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px;margin-top:2px">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Funnel nav -->
+  <div class="funnel">
+    <div class="funnel-step active" data-tf="4H" onclick="switchTF('4H')">
+      <div class="f-tf">4H</div>
+      <div class="f-label">Macro Bias</div>
+    </div>
+    <div class="funnel-step" data-tf="1H" onclick="switchTF('1H')">
+      <div class="f-tf">1H</div>
+      <div class="f-label">Structure</div>
+    </div>
+    <div class="funnel-step" data-tf="15M" onclick="switchTF('15M')">
+      <div class="f-tf">15M</div>
+      <div class="f-label">POI Zone</div>
+    </div>
+    <div class="funnel-step" data-tf="5M" onclick="switchTF('5M')">
+      <div class="f-tf">5M</div>
+      <div class="f-label">Execution</div>
+    </div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <!-- LEFT: TF Panels -->
+    <div>
+
+      <!-- 4H Panel -->
+      <div class="tf-panel tf-4h active" id="panel-4H">
+        <div class="panel-header">
+          <div class="panel-tf-badge">4H</div>
+          <div>
+            <div class="panel-title">Macro Bias — The Filter</div>
+            <div class="panel-subtitle">Determines your trade direction. Never fight this timeframe.</div>
+          </div>
+        </div>
+        <div class="role-pill">Step 1 of 4 — Direction Filter</div>
+
+        <div class="hint-bar">
+          You are only allowed to trade in the direction this timeframe dictates. If 4H is bearish, all lower TF long setups are IGNORED.
+        </div>
+
+        <div class="section-label">Key Concepts</div>
+        <div class="concept-grid">
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(0,212,255,.1)">V</div>
+              <div class="concept-name">VWAP Direction</div>
+            </div>
+            <div class="concept-desc">Is price above or below VWAP? Slope direction tells you who controls fair value for the session.</div>
+            <div class="concept-signal sig-bear">Below + sloping down = Bearish</div>
+            <div class="concept-signal sig-bull" style="margin-left:0;margin-top:4px;display:block">Above + sloping up = Bullish</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(255,77,106,.1)">MS</div>
+              <div class="concept-name">Market Structure</div>
+            </div>
+            <div class="concept-desc">Track swing highs and lows. A ChoCH on 4H is the most powerful signal that bias has completely flipped.</div>
+            <div class="concept-signal sig-bear">LH + LL = Bearish trend</div>
+            <div class="concept-signal sig-bull" style="margin-left:0;margin-top:4px;display:block">HH + HL = Bullish trend</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(167,139,250,.1)">PD</div>
+              <div class="concept-name">Premium / Discount</div>
+            </div>
+            <div class="concept-desc">Find the 50% midpoint of the 4H range. Only sell in premium (above 50%). Only buy in discount (below 50%).</div>
+            <div class="concept-signal sig-warn">Premium = sell zone · Discount = buy zone</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(0,230,150,.1)">OB</div>
+              <div class="concept-name">Order Blocks</div>
+            </div>
+            <div class="concept-desc">Mark the last bearish candle before a bullish expansion (and vice versa). These are institutional entry zones.</div>
+            <div class="concept-signal sig-info">4H OB = highest quality zone</div>
+          </div>
+        </div>
+
+        <div class="section-label">Bias Conditions</div>
+        <div class="matrix">
+          <div class="matrix-cell bear">
+            <div class="mc-head">Bearish Bias</div>
+            <div class="mc-body">Price below VWAP<br>LH/LL structure<br>In premium zone<br>Bearish 4H OB above</div>
+          </div>
+          <div class="matrix-cell bull">
+            <div class="mc-head">Bullish Bias</div>
+            <div class="mc-body">Price above VWAP<br>HH/HL structure<br>In discount zone<br>Bullish 4H OB below</div>
+          </div>
+        </div>
+
+        <div class="section-label">Rules</div>
+        <div class="rule-card"><div class="rule-num">01</div><div class="rule-text">Never scalp against the 4H bias — a counter-trend setup with 10 confluences is still lower quality than an aligned setup with 5.<em>The trend is your most powerful confluence.</em></div></div>
+        <div class="rule-card"><div class="rule-num">02</div><div class="rule-text">A 4H ChoCH overrides everything. Stop all trades, reassess bias immediately.<em>Structural shifts invalidate all pending setups.</em></div></div>
+        <div class="rule-card"><div class="rule-num">03</div><div class="rule-text">Only proceed to 1H analysis once 4H bias is clearly defined — bullish or bearish, not "uncertain."<em>Uncertainty = no trade.</em></div></div>
+
+        <div class="divider"></div>
+        <button class="reset-btn" style="padding:8px 16px;font-size:12px;border-radius:6px;border:1px solid var(--border2);cursor:pointer;color:var(--accent);background:rgba(0,212,255,.05)" onclick="switchTF('1H')">Next → 1H Structure ›</button>
+      </div>
+
+      <!-- 1H Panel -->
+      <div class="tf-panel tf-1h" id="panel-1H">
+        <div class="panel-header">
+          <div class="panel-tf-badge">1H</div>
+          <div>
+            <div class="panel-title">Structure & POI Mapping</div>
+            <div class="panel-subtitle">Where will smart money react? Mark the zones, not entries.</div>
+          </div>
+        </div>
+        <div class="role-pill">Step 2 of 4 — Zone Identification</div>
+
+        <div class="hint-bar">
+          You are NOT entering trades here. You are identifying 1–2 key price zones where you will watch for 15M confirmation. Quality over quantity.
+        </div>
+
+        <div class="section-label">Key Concepts</div>
+        <div class="concept-grid">
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(0,212,255,.1)">VW</div>
+              <div class="concept-name">VWAP as SR</div>
+            </div>
+            <div class="concept-desc">On 1H, VWAP acts as a dynamic support/resistance level. Institutions defend and attack this level systematically.</div>
+            <div class="concept-signal sig-bear">Price below VWAP rejecting upward = strong short zone</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(255,77,106,.1)">OB</div>
+              <div class="concept-name">1H Order Blocks</div>
+            </div>
+            <div class="concept-desc">Last displacement candle before a significant move. Price will return to these. The high/low of the candle defines your zone.</div>
+            <div class="concept-signal sig-info">Mark top and bottom — this is your reaction box</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(167,139,250,.1)">FVG</div>
+              <div class="concept-name">Fair Value Gap</div>
+            </div>
+            <div class="concept-desc">Three-candle imbalance where the wicks don't overlap. Price is magnetically drawn back to fill these gaps before continuing.</div>
+            <div class="concept-signal sig-warn">Unfilled 1H FVG = high-probability retest target</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(0,230,150,.1)">BOS</div>
+              <div class="concept-name">BOS / ChoCH</div>
+            </div>
+            <div class="concept-desc">Break of Structure confirms trend continuation. Change of Character signals a potential reversal — both must align with 4H bias.</div>
+            <div class="concept-signal sig-bear">1H ChoCH aligned with 4H bearish = very high conviction</div>
+          </div>
+        </div>
+
+        <div class="section-label">Zone Quality Ranking</div>
+        <div class="rule-card"><div class="rule-num">S+</div><div class="rule-text">1H OB + FVG overlap at VWAP level<em>Three confluences at the exact same price — rarest and most powerful zone type.</em></div></div>
+        <div class="rule-card"><div class="rule-num">A</div><div class="rule-text">1H OB with BOS confirmation above/below<em>Structural context adds significant conviction to the order block.</em></div></div>
+        <div class="rule-card"><div class="rule-num">B</div><div class="rule-text">Standalone 1H FVG in the direction of 4H bias<em>Valid zone but lacks structural confluence — watch carefully.</em></div></div>
+        <div class="rule-card"><div class="rule-num">C</div><div class="rule-text">Support/resistance level only — no SMC structure<em>Lowest quality. Only trade if supported by many 15M confluences.</em></div></div>
+
+        <div class="divider"></div>
+        <div style="display:flex;gap:10px">
+          <button class="reset-btn" style="padding:8px 16px;font-size:12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;color:var(--muted);background:none" onclick="switchTF('4H')">‹ 4H</button>
+          <button class="reset-btn" style="padding:8px 16px;font-size:12px;border-radius:6px;border:1px solid var(--border2);cursor:pointer;color:var(--accent);background:rgba(0,212,255,.05)" onclick="switchTF('15M')">Next → 15M Zone ›</button>
+        </div>
+      </div>
+
+      <!-- 15M Panel -->
+      <div class="tf-panel tf-15m" id="panel-15M">
+        <div class="panel-header">
+          <div class="panel-tf-badge">15M</div>
+          <div>
+            <div class="panel-title">Precision Zone & VWAP Confluence</div>
+            <div class="panel-subtitle">Refine the 1H zone into a tight entry window with VWAP as the anchor.</div>
+          </div>
+        </div>
+        <div class="role-pill">Step 3 of 4 — Entry Zone Refinement</div>
+
+        <div class="hint-bar">
+          This is where your setup fully forms. The 15M VWAP retest from the wrong side is the single most powerful entry trigger available to a scalper.
+        </div>
+
+        <div class="section-label">VWAP Retest Setup (Core Pattern)</div>
+        <div class="rule-card"><div class="rule-num">1</div><div class="rule-text">Price breaks below 15M VWAP (for shorts) — this is the initial signal that sellers are taking control.<em>Watch for the break candle — high volume = institutional.</em></div></div>
+        <div class="rule-card"><div class="rule-num">2</div><div class="rule-text">Price retraces back up to test VWAP from underneath — this is the entry trigger zone.<em>You want the retest, not the initial break.</em></div></div>
+        <div class="rule-card"><div class="rule-num">3</div><div class="rule-text">VWAP retest coincides with a 1H OB or FVG — this is the nested confluence that creates A+ setups.<em>One zone on top of another = highest probability.</em></div></div>
+        <div class="rule-card"><div class="rule-num">4</div><div class="rule-text">Volume Delta turns negative during the retest — confirms institutions are selling into the bounce.<em>Positive delta during a short retest = warning sign, wait.</em></div></div>
+
+        <div class="divider"></div>
+
+        <div class="section-label">Nested Confluence Map</div>
+        <div class="concept-grid">
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(167,139,250,.1)">NZ</div>
+              <div class="concept-name">Nested Zones</div>
+            </div>
+            <div class="concept-desc">A 15M OB sitting inside a 1H FVG = "zone inside a zone." Price hitting this area faces double institutional resistance.</div>
+            <div class="concept-signal sig-warn">Adds +1 point to setup grade</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(255,77,106,.1)">LQ</div>
+              <div class="concept-name">Liquidity Sweep</div>
+            </div>
+            <div class="concept-desc">Equal highs/lows on 15M are stop-loss pools. When price sweeps through them and reverses, smart money has cleared the path.</div>
+            <div class="concept-signal sig-bear">Sweep + reversal = smart money fingerprint</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(0,230,150,.1)">VD</div>
+              <div class="concept-name">Volume Delta</div>
+            </div>
+            <div class="concept-desc">Cumulative buy vs sell volume. Negative delta on a bounce = sellers aggressive. Confirms the retest is being defended.</div>
+            <div class="concept-signal sig-info">Negative delta on short zone = confirmed</div>
+          </div>
+          <div class="concept-card">
+            <div class="concept-card-head">
+              <div class="concept-icon" style="background:rgba(0,212,255,.1)">RSI</div>
+              <div class="concept-name">RSI Context</div>
+            </div>
+            <div class="concept-desc">RSI at 60–70 on a retest in a downtrend = momentum has recovered but not reversed. Divergence adds extra conviction.</div>
+            <div class="concept-signal sig-warn">Bearish divergence at zone = highest RSI confluence</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div style="display:flex;gap:10px">
+          <button class="reset-btn" style="padding:8px 16px;font-size:12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;color:var(--muted);background:none" onclick="switchTF('1H')">‹ 1H</button>
+          <button class="reset-btn" style="padding:8px 16px;font-size:12px;border-radius:6px;border:1px solid var(--border2);cursor:pointer;color:var(--accent);background:rgba(0,212,255,.05)" onclick="switchTF('5M')">Next → 5M Entry ›</button>
+        </div>
+      </div>
+
+      <!-- 5M Panel -->
+      <div class="tf-panel tf-5m" id="panel-5M">
+        <div class="panel-header">
+          <div class="panel-tf-badge">5M</div>
+          <div>
+            <div class="panel-title">Execution — Entry Triggers</div>
+            <div class="panel-subtitle">Everything above told you where and why. This tells you when.</div>
+          </div>
+        </div>
+        <div class="role-pill">Step 4 of 4 — Pull the Trigger</div>
+
+        <div class="hint-bar">
+          You never enter on a 4H or 1H signal alone. You wait for the 5M to give you a trigger INSIDE the zone. Patience here separates professional traders from gamblers.
+        </div>
+
+        <div class="section-label">Entry Triggers — select all that apply</div>
+        <div class="trigger-list" id="triggerList">
+          <div class="trigger-item selected" onclick="toggleTrigger(this)">
+            <div class="trigger-dot"></div>
+            <div>
+              <div class="trigger-name">Bearish / Bullish Engulfing Candle</div>
+              <div class="trigger-desc">Candle body fully engulfs the prior candle. Body close matters — not just wick. High-volume engulf = strongest version.</div>
+            </div>
+          </div>
+          <div class="trigger-item" onclick="toggleTrigger(this)">
+            <div class="trigger-dot"></div>
+            <div>
+              <div class="trigger-name">5M ChoCH (Change of Character)</div>
+              <div class="trigger-desc">Micro structure shift inside the 15M zone. A 5M ChoCH in the direction of the 4H trend is the highest quality execution trigger.</div>
+            </div>
+          </div>
+          <div class="trigger-item" onclick="toggleTrigger(this)">
+            <div class="trigger-dot"></div>
+            <div>
+              <div class="trigger-name">Liquidity Sweep + Close Back Inside</div>
+              <div class="trigger-desc">Price spikes through equal highs/lows grabbing stops, then immediately closes back inside range. Enter on the close of that reversal candle.</div>
+            </div>
+          </div>
+          <div class="trigger-item" onclick="toggleTrigger(this)">
+            <div class="trigger-dot"></div>
+            <div>
+              <div class="trigger-name">RSI Divergence on 5M</div>
+              <div class="trigger-desc">Price makes a new swing extreme inside the zone but RSI fails to confirm. Momentum exhaustion. Best paired with another trigger.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="section-label">Trade Parameters</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div class="param-row"><div class="param-label">Stop Loss placement</div><div class="param-val">1–3 ticks above/below zone extremity</div></div>
+          <div class="param-row"><div class="param-label">Minimum R:R to take trade</div><div class="param-val" style="color:var(--bull)">3:1</div></div>
+          <div class="param-row"><div class="param-label">Target 1 (partial)</div><div class="param-val">Next liquidity pool / equal lows/highs</div></div>
+          <div class="param-row"><div class="param-label">Target 2 (runner)</div><div class="param-val">HTF OB / Strong High or Low</div></div>
+          <div class="param-row"><div class="param-label">Max trades per session</div><div class="param-val">3 (stop after 2 losses)</div></div>
+          <div class="param-row"><div class="param-label">Risk per trade</div><div class="param-val">0.5–1% of account</div></div>
+        </div>
+
+        <div class="divider"></div>
+        <button class="reset-btn" style="padding:8px 16px;font-size:12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;color:var(--muted);background:none" onclick="switchTF('15M')">‹ 15M</button>
+      </div>
+
+    </div><!-- end left -->
+
+    <!-- RIGHT: Checklist sidebar -->
+    <div class="sidebar">
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">
+          <span>Confluence Checklist</span>
+          <button class="reset-btn" onclick="resetAll()">Reset</button>
+        </div>
+
+        <div class="check-group">
+          <div class="check-group-label" style="color:var(--bear)">4H — Macro (4 pts)</div>
+          <div class="check-item" data-pts="2" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">VWAP direction aligned</div>
+              <div class="ci-pts">+2 pts</div>
+            </div>
+          </div>
+          <div class="check-item" data-pts="2" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">4H structure HH/HL or LH/LL</div>
+              <div class="ci-pts">+2 pts</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="check-group">
+          <div class="check-group-label" style="color:var(--warn)">1H — Structure (3 pts)</div>
+          <div class="check-item" data-pts="2" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">1H OB or FVG at entry zone</div>
+              <div class="ci-pts">+2 pts</div>
+            </div>
+          </div>
+          <div class="check-item" data-pts="1" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">1H BOS / ChoCH confirms bias</div>
+              <div class="ci-pts">+1 pt</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="check-group">
+          <div class="check-group-label" style="color:var(--info)">15M — Zone (4 pts)</div>
+          <div class="check-item" data-pts="2" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">15M VWAP retest from correct side</div>
+              <div class="ci-pts">+2 pts</div>
+            </div>
+          </div>
+          <div class="check-item" data-pts="1" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">Nested OB / FVG inside 1H zone</div>
+              <div class="ci-pts">+1 pt</div>
+            </div>
+          </div>
+          <div class="check-item" data-pts="1" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">Liquidity sweep before entry</div>
+              <div class="ci-pts">+1 pt</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="check-group">
+          <div class="check-group-label" style="color:var(--bull)">5M — Execution (3 pts)</div>
+          <div class="check-item" data-pts="1" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">Volume Delta confirms aggression</div>
+              <div class="ci-pts">+1 pt</div>
+            </div>
+          </div>
+          <div class="check-item" data-pts="1" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">5M entry trigger confirmed</div>
+              <div class="ci-pts">+1 pt</div>
+            </div>
+          </div>
+          <div class="check-item" data-pts="1" onclick="toggleCheck(this)">
+            <div class="ci-box"></div>
+            <div class="ci-body">
+              <div class="ci-label">R:R ratio above 3:1</div>
+              <div class="ci-pts">+1 pt</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score -->
+        <div class="score-display">
+          <div class="score-row">
+            <div class="score-label">Confluence Score</div>
+            <div><span class="score-val" id="scoreVal">0</span><span class="score-max"> / 14</span></div>
+          </div>
+          <div class="prog-track">
+            <div class="prog-fill" id="progFill"></div>
+          </div>
+          <div class="grade-badge" id="gradeBadge" style="background:rgba(107,122,148,.08);border-color:rgba(107,122,148,.2)">
+            <div>
+              <div class="grade-letter" id="gradeLetter" style="color:var(--muted)">–</div>
+              <div class="grade-name" id="gradeName" style="color:var(--muted)">No setup</div>
+            </div>
+            <div class="grade-action" id="gradeAction" style="color:var(--muted)">Keep scanning</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grade Scale -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Grade Scale</div>
+        <div class="grade-scale" id="gradeScale">
+          <div class="gs-row" data-min="0" data-max="5">
+            <div class="gs-pts">0–5</div>
+            <div class="gs-grade" style="color:var(--muted)">F</div>
+            <div class="gs-label">No trade</div>
+            <div class="gs-action" style="background:rgba(107,122,148,.1);color:var(--muted)">Skip</div>
+          </div>
+          <div class="gs-row" data-min="6" data-max="7">
+            <div class="gs-pts">6–7</div>
+            <div class="gs-grade" style="color:var(--warn)">C</div>
+            <div class="gs-label">Weak setup</div>
+            <div class="gs-action" style="background:rgba(255,179,71,.1);color:var(--warn)">Min size</div>
+          </div>
+          <div class="gs-row" data-min="8" data-max="9">
+            <div class="gs-pts">8–9</div>
+            <div class="gs-grade" style="color:var(--info)">B</div>
+            <div class="gs-label">Valid setup</div>
+            <div class="gs-action" style="background:rgba(124,158,255,.1);color:var(--info)">0.5% risk</div>
+          </div>
+          <div class="gs-row" data-min="10" data-max="11">
+            <div class="gs-pts">10–11</div>
+            <div class="gs-grade" style="color:var(--bull)">A</div>
+            <div class="gs-label">High conviction</div>
+            <div class="gs-action" style="background:rgba(0,230,150,.1);color:var(--bull)">1% risk</div>
+          </div>
+          <div class="gs-row" data-min="12" data-max="13">
+            <div class="gs-pts">12–13</div>
+            <div class="gs-grade" style="color:#ffb347">A+</div>
+            <div class="gs-label">Elite setup</div>
+            <div class="gs-action" style="background:rgba(255,179,71,.1);color:#ffb347">1.5% risk</div>
+          </div>
+          <div class="gs-row" data-min="14" data-max="14">
+            <div class="gs-pts">14</div>
+            <div class="gs-grade" style="color:var(--gold)">S+</div>
+            <div class="gs-label">Max confluence</div>
+            <div class="gs-action" style="background:rgba(255,215,0,.12);color:var(--gold)">Max size</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrow chain -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div class="sidebar-title" style="margin-bottom:10px">Analysis Order</div>
+        <div class="arrow-chain">
+          <div class="chain-item" style="background:rgba(255,77,106,.1);color:var(--bear)">4H</div>
+          <div class="chain-sep">→</div>
+          <div class="chain-item" style="background:rgba(255,179,71,.1);color:var(--warn)">1H</div>
+          <div class="chain-sep">→</div>
+          <div class="chain-item" style="background:rgba(124,158,255,.1);color:var(--info)">15M</div>
+          <div class="chain-sep">→</div>
+          <div class="chain-item" style="background:rgba(0,230,150,.1);color:var(--bull)">5M</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6">
+          Top-down only. Start at 4H every session. Work down to execution. Never reverse the order.
+        </div>
+      </div>
+
+    </div><!-- end sidebar -->
+
+  </div><!-- end main grid -->
+
+</div><!-- end app -->
+
+<script>
+function switchTF(tf) {
+  document.querySelectorAll('.funnel-step').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tf-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('.funnel-step[data-tf="'+tf+'"]').classList.add('active');
+  document.getElementById('panel-'+tf).classList.add('active');
+}
+
+function toggleCheck(item) {
+  item.classList.toggle('checked');
+  updateScore();
+}
+
+function toggleTrigger(item) {
+  item.classList.toggle('selected');
+}
+
+function updateScore() {
+  var items = document.querySelectorAll('.check-item');
+  var total = 0;
+  items.forEach(function(item) {
+    if (item.classList.contains('checked')) {
+      total += parseInt(item.getAttribute('data-pts'));
+    }
+  });
+
+  document.getElementById('scoreVal').textContent = total;
+  var pct = (total / 14) * 100;
+  var fill = document.getElementById('progFill');
+  fill.style.width = pct + '%';
+
+  var badge = document.getElementById('gradeBadge');
+  var letter = document.getElementById('gradeLetter');
+  var name = document.getElementById('gradeName');
+  var action = document.getElementById('gradeAction');
+
+  badge.classList.remove('grade-splus');
+
+  if (total <= 5) {
+    fill.style.background = 'var(--muted)';
+    badge.style.background = 'rgba(107,122,148,.08)';
+    badge.style.borderColor = 'rgba(107,122,148,.2)';
+    letter.style.color = 'var(--muted)'; letter.textContent = 'F';
+    name.style.color = 'var(--muted)'; name.textContent = 'No trade';
+    action.style.color = 'var(--muted)'; action.textContent = 'Keep scanning';
+  } else if (total <= 7) {
+    fill.style.background = 'var(--warn)';
+    badge.style.background = 'rgba(255,179,71,.08)';
+    badge.style.borderColor = 'rgba(255,179,71,.25)';
+    letter.style.color = 'var(--warn)'; letter.textContent = 'C';
+    name.style.color = 'var(--warn)'; name.textContent = 'Weak setup';
+    action.style.color = 'var(--warn)'; action.textContent = 'Min size only';
+  } else if (total <= 9) {
+    fill.style.background = 'var(--info)';
+    badge.style.background = 'rgba(124,158,255,.08)';
+    badge.style.borderColor = 'rgba(124,158,255,.25)';
+    letter.style.color = 'var(--info)'; letter.textContent = 'B';
+    name.style.color = 'var(--info)'; name.textContent = 'Valid setup';
+    action.style.color = 'var(--info)'; action.textContent = 'Take at 0.5% risk';
+  } else if (total <= 11) {
+    fill.style.background = 'var(--bull)';
+    badge.style.background = 'rgba(0,230,150,.08)';
+    badge.style.borderColor = 'rgba(0,230,150,.25)';
+    letter.style.color = 'var(--bull)'; letter.textContent = 'A';
+    name.style.color = 'var(--bull)'; name.textContent = 'High conviction';
+    action.style.color = 'var(--bull)'; action.textContent = 'Take at 1% risk';
+  } else if (total <= 13) {
+    fill.style.background = '#ffb347';
+    badge.style.background = 'rgba(255,179,71,.08)';
+    badge.style.borderColor = 'rgba(255,179,71,.35)';
+    letter.style.color = '#ffb347'; letter.textContent = 'A+';
+    name.style.color = '#ffb347'; name.textContent = 'Elite setup';
+    action.style.color = '#ffb347'; action.textContent = 'Take at 1.5% risk';
+  } else {
+    fill.style.background = 'var(--gold)';
+    badge.style.background = 'rgba(255,215,0,.07)';
+    badge.style.borderColor = 'rgba(255,215,0,.35)';
+    badge.classList.add('grade-splus');
+    letter.style.color = 'var(--gold)'; letter.textContent = 'S+';
+    name.style.color = 'var(--gold)'; name.textContent = 'Max confluence';
+    action.style.color = 'var(--gold)'; action.textContent = 'Maximum position size';
+  }
+
+  // highlight current row in grade scale
+  var rows = document.querySelectorAll('.gs-row');
+  rows.forEach(function(row) {
+    var min = parseInt(row.getAttribute('data-min'));
+    var max = parseInt(row.getAttribute('data-max'));
+    row.classList.toggle('current', total >= min && total <= max);
+  });
+}
+
+function resetAll() {
+  document.querySelectorAll('.check-item').forEach(function(item) {
+    item.classList.remove('checked');
+  });
+  updateScore();
+}
+
+// Clock — Philippine Time (PHT = UTC+8)
+function updateClock() {
+  var now = new Date();
+
+  var utcH = now.getUTCHours();
+  var utcM = now.getUTCMinutes();
+  var utcS = now.getUTCSeconds();
+
+  var phtH = (utcH + 8) % 24;
+  var ampm = phtH >= 12 ? 'PM' : 'AM';
+  var phtH12 = phtH % 12 || 12;
+
+  document.getElementById('clock-pht').textContent =
+    String(phtH12).padStart(2,'0') + ':' +
+    String(utcM).padStart(2,'0') + ':' +
+    String(utcS).padStart(2,'0') + ' ' + ampm;
+
+  document.getElementById('clock').textContent =
+    String(utcH).padStart(2,'0') + ':' +
+    String(utcM).padStart(2,'0') + ':' +
+    String(utcS).padStart(2,'0');
+
+  var sl = document.getElementById('session-label');
+  var label = '', bg = '', col = '';
+
+  // Sessions in PHT (UTC+8):
+  // Asian Session:   08:00–16:00 PHT  (UTC 00:00–08:00)
+  // London Session:  15:00–23:00 PHT  (UTC 07:00–15:00)
+  // NY Open/Overlap: 20:00–00:00 PHT  (UTC 12:00–16:00)
+  // NY Session:      21:00–05:00 PHT  (UTC 13:00–21:00)
+
+  if (utcH >= 0 && utcH < 7) {
+    label = 'Asian Session — Active'; bg = 'rgba(124,158,255,.12)'; col = '#7c9eff';
+  } else if (utcH >= 7 && utcH < 12) {
+    label = 'London Session — Active'; bg = 'rgba(255,179,71,.12)'; col = '#ffb347';
+  } else if (utcH >= 12 && utcH < 16) {
+    label = 'NY Open / Overlap — High Vol'; bg = 'rgba(255,77,106,.12)'; col = '#ff4d6a';
+  } else if (utcH >= 16 && utcH < 21) {
+    label = 'NY Session — Active'; bg = 'rgba(0,230,150,.12)'; col = '#00e696';
+  } else {
+    label = 'After Hours — Low Vol'; bg = 'rgba(107,122,148,.1)'; col = '#6b7a94';
+  }
+
+  sl.textContent = label;
+  sl.style.background = bg;
+  sl.style.color = col;
+}
+updateClock();
+setInterval(updateClock, 1000);
+</script>
+</body>
+</html>
